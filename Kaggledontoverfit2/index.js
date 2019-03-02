@@ -25,7 +25,7 @@ const getXsTestData = () => {
   let xs = fs.readFileSync(path.join(__dirname, 'test.csv'), 'utf-8')
     .split(/\r?\n/) // Separation des lignes
     .map( line => line.split(',').splice(1)) // vire id : splice 1
-    // .map( line => line.split(',').splice(281)) 
+    // .map( line => line.split(',').splice(281))
   xs.pop()
   xs.shift()
   return xs
@@ -33,12 +33,12 @@ const getXsTestData = () => {
 
 const predict = xs => {
   return tf.tidy( () => {
-    return weights.mul(xs).sum(1)
+    return weights.mul(xs).sum(1).add(biase)
   })
 }
 
-const train = (xs, ys, nbIterations = 5000) => {
-  const learningRate = 0.005
+const train = (xs, ys, nbIterations = 300) => {
+  const learningRate = 0.01
   const optimizer = tf.train.sgd(learningRate)
 
   for (let i = 0; i < nbIterations; i++) {
@@ -57,11 +57,12 @@ const loss = (ysFake, ysReal) => {
 
 const xs = tf.tensor2d(getXsTrainData(), [250, 300], 'float32') // 250 lignes de 300 elements
 const ys = tf.tensor1d(getYsTrainData(), 'float32') // pas de shape en 1d
-const weights = tf.variable(tf.randomUniform([300], -1, 1))
+const weights = tf.variable(tf.randomUniform([300], 0, 1))
+const biase = tf.variable(tf.scalar(Math.random()))
 
 
 const accuracy = (xsToPredict, ysReal) => {
-  let ysPredicted = predict(xsToPredict).dataSync().map( e => e > 0.5 ? 1:0)
+  let ysPredicted = predict(xsToPredict).dataSync().map( e => e > 0 ? 1:0)
   let ys = ysReal.dataSync()
 
   let goodGuess = 0
@@ -72,7 +73,7 @@ const accuracy = (xsToPredict, ysReal) => {
 }
 
 const predictTest = xsTest => {
-  let ysPredicted = predict(xsTest).dataSync().map( e => e > 0.5 ? 1:0)
+  let ysPredicted = predict(xsTest).dataSync().map( e => e > 0 ? 1:0)
   console.log(ysPredicted.length)
 
   let file = fs.createWriteStream('results.csv')
@@ -85,8 +86,9 @@ const predictTest = xsTest => {
   file.end()
 }
 
+biase.print()
 train(xs, ys)
 accuracy(xs, ys)
-
+biase.print()
 const xsTest = tf.tensor2d(getXsTestData(), [19750, 300], 'float32') // 19750 lignes de 300 elements
 predictTest(xsTest)
