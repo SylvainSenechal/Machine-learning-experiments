@@ -7,7 +7,8 @@
 const IMAGE_SIZE = 28
 const LR = 0.0002
 const ADAM_BETA = 0.5
-const LATENT_SIZE = 10
+const LATENT_SIZE = 100
+const SOFTONE = tf.scalar(0.95);
 
 let discriminator, generator, combined
 
@@ -131,7 +132,7 @@ const trainDiscriminator = async () => {
   const zVector = tf.randomUniform([1, LATENT_SIZE], -1, 1)
   const fakeX = generator.cnn.predict([zVector])
   const x = tf.concat([realX, fakeX])
-  const y = tf.tensor([1, 0])
+  const y = tf.tensor([1, 0]).mul(SOFTONE)
 
   const loss = await discriminator.cnn.trainOnBatch(x, y)
   return loss
@@ -156,7 +157,7 @@ const run = async () => {
   generator = new Generator()
   generator.cnn.summary()
 
-  // discriminator.trainable = false
+  // discriminator.cnn.trainable = false
   const latent = tf.input({shape: [LATENT_SIZE]})
   let fake = generator.cnn.apply([latent])
 
@@ -176,12 +177,17 @@ const run = async () => {
   })
   combined.summary()
 
-  for (let i = 0; i < 200; i++) {
+  for (let i = 0; i < 2000; i++) {
     const discriminatorLoss = await trainDiscriminator()
     const generatorLoss = await trainGenerator()
 
     console.log("dLoss : ", discriminatorLoss)
     console.log("gLoss : ", generatorLoss, "\n\n")
+
+    if (i % 20 === 0) {
+      gridGen = generator.cnn.predict(tf.randomUniform([1, LATENT_SIZE], -1, 1)).dataSync()
+      drawGridGen()
+    }
   }
   discriminator.cnn.predict(tf.tensor(gridPredict.flat(), [1, 28, 28, 1])).print()
   discriminator.cnn.predict(tf.randomUniform([IMAGE_SIZE, IMAGE_SIZE], 0, 1).reshape([1, 28, 28, 1])).print()
@@ -191,7 +197,7 @@ document.addEventListener('keydown', e => {
   if (e.keyCode === 84) run() // t -> train
   else if (e.keyCode === 71) { // g -> generate
     gridGen = generator.cnn.predict(tf.randomUniform([1, LATENT_SIZE], -1, 1)).dataSync()
-    console.log(gridGen)
+    drawGridGen()
   }
   else {
     discriminator.cnn.predict(tf.tensor(gridPredict.flat(), [1, 28, 28, 1])).print()
